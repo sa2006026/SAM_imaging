@@ -19,7 +19,7 @@ def download_sam_model(model_type="vit_h"):
         "vit_h": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth"
     }
     
-    model_path = f"sam_{model_type}_model.pth"
+    model_path = f"model/sam_{model_type}_model.pth"
     
     if not os.path.exists(model_path):
         print(f"Downloading SAM {model_type} model...")
