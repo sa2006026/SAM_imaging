@@ -1,0 +1,73 @@
+# Git and version control
+.git
+.gitignore
+.github/
+
+# Documentation
+docs/
+*.md
+*.rst
+
+# Development files
+.vscode/
+.idea/
+*.code-workspace
+
+# Environment and configuration
+.env
+.env.*
+env_example.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Test files
+tests/
+test_*.py
+
+# Development dependencies
+requirements_dev.txt
+tox.ini
+
+# Docker files (avoid recursion)
+Dockerfile*
+docker-compose*.yml
+.dockerignore 

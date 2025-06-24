@@ -1,0 +1,7 @@
+tunnel: 868498a4-cc74-45f8-a6d1-ca0ecf28ecd6
+credentials-file: /etc/cloudflared/.cloudflared/868498a4-cc74-45f8-a6d1-ca0ecf28ecd6.json
+
+ingress:
+  - hostname: sam.gavinlou.com
+    service: http://sam-app:9487
+  - service: http_status:404 

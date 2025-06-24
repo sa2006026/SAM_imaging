@@ -1,0 +1,2091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAM Droplet Segmentation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: border-color 0.3s;
+        }
+        .upload-area:hover {
+            border-color: #007bff;
+        }
+        .upload-area.dragover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .upload-btn {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        .upload-btn:hover {
+            background-color: #0056b3;
+        }
+        .process-btn {
+            background-color: #28a745;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        .process-btn:hover {
+            background-color: #1e7e34;
+        }
+        .process-btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .preview-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .preview-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .results-container {
+            margin-top: 30px;
+        }
+        .results-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+            min-height: 700px;
+        }
+        .mask-display-panel {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: white;
+            min-height: 600px;
+        }
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .mask-preview-section,
+        .filter-controls-section,
+        .summary-statistics-section {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: white;
+            flex-shrink: 0;
+        }
+        .mask-preview-section {
+            height: 350px;
+            overflow: hidden;
+        }
+        .preview-mask-container {
+            height: 220px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .preview-mask-image {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        .mask-details {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .filter-panel {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .filter-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .filter-group label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #495057;
+        }
+        .filter-input {
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .filter-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
+        .filter-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .filter-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .filter-btn.apply {
+            background-color: #007bff;
+            color: white;
+        }
+        .filter-btn.apply:hover {
+            background-color: #0056b3;
+        }
+        .filter-btn.clear {
+            background-color: #6c757d;
+            color: white;
+        }
+        .filter-btn.clear:hover {
+            background-color: #545b62;
+        }
+        .filter-btn.analyze {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .filter-btn.analyze:hover {
+            background-color: #138496;
+        }
+        .analysis-results {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 13px;
+        }
+        .collapsible-section {
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .collapsible-header {
+            background: #e9ecef;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .collapsible-content {
+            padding: 15px;
+            display: none;
+        }
+        .collapsible-content.active {
+            display: block;
+        }
+        .interactive-filter-controls {
+            margin: 10px 0;
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        .filter-control-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin: 0 3px;
+        }
+        .filter-control-btn:hover {
+            background-color: #c82333;
+        }
+        .filter-control-btn.secondary {
+            background-color: #6c757d;
+        }
+        .filter-control-btn.secondary:hover {
+            background-color: #545b62;
+        }
+        .filter-control-btn.success {
+            background-color: #28a745;
+        }
+        .filter-control-btn.success:hover {
+            background-color: #1e7e34;
+        }
+        .filter-status {
+            font-size: 12px;
+            margin-top: 5px;
+            color: #6c757d;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 300px;
+            background-color: #555;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -150px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        .mask-details-summary {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            height: 90px;
+            overflow: hidden;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #495057;
+        }
+        .filter-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .filter-group label {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 3px;
+            color: #495057;
+        }
+        .filter-input-small {
+            padding: 6px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .filter-actions-compact {
+            display: flex;
+            gap: 10px;
+        }
+        .filter-actions-compact .filter-btn {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+        .metric-label {
+            font-weight: bold;
+            color: #495057;
+        }
+        .summary-table-compact {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .summary-table-compact td {
+            padding: 6px 8px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .mask-preview-section h4,
+        .filter-controls-section h4,
+        .summary-statistics-section h4 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #495057;
+            font-size: 16px;
+        }
+        .original-image-container {
+            position: relative;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .original-image {
+            width: 100%;
+            height: auto;
+            display: block;
+            cursor: crosshair;
+        }
+        .hover-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+        .mask-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            opacity: 0.4;
+        }
+        .overlay-controls {
+            margin: 10px 0;
+            text-align: center;
+        }
+        .overlay-toggle {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 0 5px;
+        }
+        .overlay-toggle:hover {
+            background-color: #545b62;
+        }
+        .overlay-toggle.active {
+            background-color: #007bff;
+        }
+        .overlay-toggle.active:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SAM Droplet Segmentation</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <p>Drag and drop an image here or click to select</p>
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                Choose Image
+            </button>
+            <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(event)">
+        </div>
+        
+        <div class="preview-container" id="previewContainer" style="display: none;">
+            <h3>Selected Image:</h3>
+            <img id="previewImage" class="preview-image" alt="Preview">
+            <br>
+            <button class="process-btn" id="processBtn" onclick="processImage()">
+                Generate Masks
+            </button>
+        </div>
+        
+        <div id="loadingDiv" class="loading" style="display: none;">
+            <p>Processing image... This may take a few moments.</p>
+        </div>
+        
+        <div id="messageDiv"></div>
+        
+        <div class="results-container" id="resultsContainer" style="display: none;">
+            <div class="results-layout">
+                <!-- Left Panel: Mask Image Display -->
+                <div class="mask-display-panel">
+                    <h4>Segmentation Results</h4>
+                    <div class="overlay-controls">
+                        <button class="overlay-toggle active" id="maskOverlayToggle" onclick="toggleMaskOverlay()">
+                            🎭 Show All Masks
+                        </button>
+                        <button class="overlay-toggle" id="colorOverlayToggle" onclick="toggleColorMode()">
+                            🌈 Color Mode
+                        </button>
+                        <button class="overlay-toggle" id="originalMasksToggle" onclick="toggleOriginalMasks()">
+                            📋 Show Pre-filter
+                        </button>
+                        <button class="overlay-toggle" id="highIntensityToggle" onclick="toggleHighIntensityOnly()">
+                            🟢 High Only
+                        </button>
+                        <button class="overlay-toggle" id="lowIntensityToggle" onclick="toggleLowIntensityOnly()">
+                            🔴 Low Only
+                        </button>
+                    </div>
+                    <div class="interactive-filter-controls">
+                        <div style="font-weight: bold; margin-bottom: 5px;">🎯 Interactive Filtering</div>
+                        <div style="font-size: 11px; margin-bottom: 8px;">Click on masks to hide false positives</div>
+                        <button class="filter-control-btn" onclick="undoLastFilter()">↶ Undo Last</button>
+                        <button class="filter-control-btn secondary" onclick="toggleFilteredVisibility()">👁️ Show Hidden</button>
+                        <button class="filter-control-btn success" onclick="resetInteractiveFilters()">🔄 Reset All</button>
+                        <div class="filter-status" id="filterStatus">Click masks to filter them out</div>
+                    </div>
+                    <div class="original-image-container" id="originalImageContainer">
+                        <img id="originalImage" class="original-image" alt="Original Image">
+                        <canvas id="maskOverlay" class="mask-overlay"></canvas>
+                        <canvas id="hoverOverlay" class="hover-overlay"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Right Panel: Controls and Information -->
+                <div class="control-panel">
+                    <!-- Mask Preview Section -->
+                    <div class="mask-preview-section">
+                        <h4>Mask Preview</h4>
+                        <div class="preview-mask-container" id="previewMaskContainer">
+                            <div style="color: #666; font-style: italic; margin-top: 30px; text-align: center;">
+                                Hover over the image to preview masks
+                            </div>
+                        </div>
+                        <div id="maskDetailsSummary" class="mask-details-summary" style="display: none;">
+                            <div class="detail-row">
+                                <span class="detail-label">Area:</span>
+                                <span id="maskAreaSummary">-</span> pixels
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Diameter:</span>
+                                <span id="maskDiameterSummary">-</span> pixels
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Mean Intensity:</span>
+                                <span id="maskIntensitySummary">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Filter Controls Section -->
+                    <div class="filter-controls-section">
+                        <h4>🔧 Filter Controls</h4>
+                        <div class="filter-grid">
+                            <div class="filter-group">
+                                <label for="areaMinControl">Min Area (px):</label>
+                                <input type="number" id="areaMinControl" class="filter-input-small" min="1" placeholder="50" oninput="updateAreaFiltering()">
+                            </div>
+                            <div class="filter-group">
+                                <label for="areaMaxControl">Max Area (px):</label>
+                                <input type="number" id="areaMaxControl" class="filter-input-small" min="1" placeholder="15000" oninput="updateAreaFiltering()">
+                            </div>
+                            <div class="filter-group">
+                                <label for="intensityThresholdControl">Intensity Threshold:</label>
+                                <input type="number" id="intensityThresholdControl" class="filter-input-small" min="0" max="255" placeholder="127" step="0.1" oninput="updateIntensityColoring()">
+                            </div>
+                            <div class="filter-group">
+                                <label for="enableIntensityColoringControl">Color by Intensity:</label>
+                                <select id="enableIntensityColoringControl" class="filter-input-small" onchange="updateIntensityColoring()">
+                                    <option value="false">Disabled</option>
+                                    <option value="true">Enabled</option>
+                                </select>
+                            </div>
+                        </div>
+                        <!-- <div class="filter-actions-compact">
+                            <button class="filter-btn apply" onclick="applyFiltersFromControls()">🔍 Apply Filters</button>
+                            <button class="filter-btn clear" onclick="clearFiltersControls()">🗑️ Clear</button>
+                        </div> -->
+                    </div>
+                    
+                    <!-- Summary Statistics Section -->
+                    <div class="summary-statistics-section">
+                        <h4>📊 Summary Statistics</h4>
+                        <div id="summaryTableCompact" style="display: none;">
+                            <table class="summary-table-compact">
+                                <tr>
+                                    <td class="metric-label">Total Masks:</td>
+                                    <td id="totalMasksCompact">-</td>
+                                </tr>
+                                <tr>
+                                    <td class="metric-label">Avg Diameter:</td>
+                                    <td id="avgDiameterCompact">-</td>
+                                </tr>
+                                <tr>
+                                    <td class="metric-label">Diameter SD:</td>
+                                    <td id="diameterSDCompact">-</td>
+                                </tr>
+                                <tr>
+                                    <td class="metric-label">Diameter CV:</td>
+                                    <td id="diameterCVCompact">-</td>
+                                </tr>
+                                <tr id="intensityStatsRow" style="display: none;">
+                                    <td colspan="2" style="padding-top: 10px; font-weight: bold; color: #495057;">Intensity Groups</td>
+                                </tr>
+                                <tr id="highIntensityRow" style="display: none;">
+                                    <td class="metric-label">🟢 High (Count):</td>
+                                    <td id="highCountCompact">-</td>
+                                </tr>
+                                <tr id="highIntensityStatsRow" style="display: none;">
+                                    <td class="metric-label">🟢 High (Avg±SD):</td>
+                                    <td id="highStatsCompact">-</td>
+                                </tr>
+                                <tr id="lowIntensityRow" style="display: none;">
+                                    <td class="metric-label">🔴 Low (Count):</td>
+                                    <td id="lowCountCompact">-</td>
+                                </tr>
+                                <tr id="lowIntensityStatsRow" style="display: none;">
+                                    <td class="metric-label">🔴 Low (Avg±SD):</td>
+                                    <td id="lowStatsCompact">-</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        let masksData = [];
+        let originalMasksData = []; // Store original masks before preprocessing
+        let originalImageElement = null;
+        let currentHoveredMask = null;
+        let maskOverlayVisible = true;
+        let colorModeEnabled = false;
+        let showingOriginalMasks = false; // Track if showing original masks
+        let showHighIntensityOnly = false; // Track if showing only high intensity masks
+        let showLowIntensityOnly = false; // Track if showing only low intensity masks
+        let maskOverlayCanvas = null;
+        let hoverOverlayCanvas = null;
+        let filteredMasks = new Set(); // Track manually filtered out masks
+        let showFilteredMasks = false; // Whether to show filtered masks
+        let filterHistory = []; // Track filtering history for undo
+        
+        // Automatically detect the server address (works for both localhost and network access)
+        const API_BASE = window.location.port ? 
+            `${window.location.protocol}//${window.location.hostname}:${window.location.port}` :
+            `${window.location.protocol}//${window.location.hostname}`;
+
+        // Default API key for demo access
+        const API_KEY = 'sam-demo-key-123';
+
+        // Drag and drop functionality
+        const uploadArea = document.getElementById('uploadArea');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showMessage('Please select an image file.', 'error');
+                return;
+            }
+
+            selectedFile = file;
+            
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('previewImage').src = e.target.result;
+                document.getElementById('previewContainer').style.display = 'block';
+                document.getElementById('resultsContainer').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Filter and analysis functions
+        function toggleSection(sectionId) {
+            const content = document.getElementById(sectionId);
+            const toggle = document.getElementById('filterToggle');
+            
+            if (content.classList.contains('active')) {
+                content.classList.remove('active');
+                toggle.textContent = '▼';
+            } else {
+                content.classList.add('active');
+                toggle.textContent = '▲';
+            }
+        }
+
+        async function analyzeImage() {
+            if (!selectedFile) {
+                showMessage('Please select an image first.', 'error');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+
+                const response = await fetch(`${API_BASE}/analyze_image`, {
+                    method: 'POST',
+                    headers: {
+                        'X-API-Key': API_KEY
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    displayAnalysisResults(result.analysis);
+                    showMessage('Image analysis complete!', 'success');
+                } else {
+                    showMessage(`Analysis error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage('Cannot connect to server for analysis.', 'error');
+            }
+        }
+
+        function displayAnalysisResults(analysis) {
+            const resultsDiv = document.getElementById('analysisResults');
+            const stats = analysis.overall_stats;
+            const info = analysis.image_info;
+            
+            resultsDiv.innerHTML = `
+                <h4>📈 Image Analysis Results</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <strong>Overall Statistics:</strong><br>
+                        Mean: ${stats.mean_intensity.toFixed(1)}<br>
+                        Range: ${stats.min_intensity} - ${stats.max_intensity}<br>
+                        Median: ${stats.median_intensity.toFixed(1)}<br>
+                        Std Dev: ${stats.std_intensity.toFixed(1)}
+                    </div>
+                    <div>
+                        <strong>Image Info:</strong><br>
+                        Size: ${info.width} × ${info.height}<br>
+                        Channels: ${info.channels}<br>
+                        Total Pixels: ${info.total_pixels.toLocaleString()}
+                    </div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <strong>💡 Suggested filter ranges:</strong><br>
+                    • Bright objects: Mean > ${(stats.mean_intensity + stats.std_intensity/2).toFixed(0)}<br>
+                    • Dark objects: Mean < ${(stats.mean_intensity - stats.std_intensity/2).toFixed(0)}<br>
+                    • High contrast: Std Dev > ${(stats.std_intensity * 1.5).toFixed(1)}
+                </div>
+            `;
+            resultsDiv.style.display = 'block';
+        }
+
+        function getFilterValues() {
+            const filters = {};
+            
+            const areaMin = document.getElementById('areaMin').value;
+            const areaMax = document.getElementById('areaMax').value;
+            const intensityThreshold = document.getElementById('intensityThreshold').value;
+            const enableIntensityColoring = document.getElementById('enableIntensityColoring').value;
+            
+            if (areaMin) filters.area_min = parseInt(areaMin);
+            if (areaMax) filters.area_max = parseInt(areaMax);
+            if (intensityThreshold) filters.intensity_threshold = parseFloat(intensityThreshold);
+            if (enableIntensityColoring === 'true') filters.enable_intensity_coloring = true;
+            
+            return filters;
+        }
+
+        async function applyFilters() {
+            if (!selectedFile) {
+                showMessage('Please select an image first.', 'error');
+                return;
+            }
+
+            const filters = getFilterValues();
+            if (Object.keys(filters).length === 0) {
+                showMessage('Please set at least one filter value.', 'error');
+                return;
+            }
+
+            const processBtn = document.getElementById('processBtn');
+            const loadingDiv = document.getElementById('loadingDiv');
+            
+            processBtn.disabled = true;
+            loadingDiv.style.display = 'block';
+            document.getElementById('resultsContainer').style.display = 'none';
+            clearMessage();
+
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('filters', JSON.stringify(filters));
+
+                const response = await fetch(`${API_BASE}/segment_file`, {
+                    method: 'POST',
+                    headers: {
+                        'X-API-Key': API_KEY
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Store original masks if they exist in the response
+                    if (result.original_masks_for_frontend) {
+                        originalMasksData = result.original_masks_for_frontend;
+                    }
+                    
+                    displayMasks(result.masks);
+                    
+                    // Update summary statistics if available
+                    if (result.summary_statistics) {
+                        updateCompactSummaryStatistics(result.summary_statistics);
+                    }
+                    
+                    showMessage(`Successfully filtered to ${result.num_masks} objects! (Filters applied)`, 'success');
+                } else {
+                    showMessage(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage('Cannot connect to server. Make sure it\'s running and accessible.', 'error');
+            } finally {
+                processBtn.disabled = false;
+                loadingDiv.style.display = 'none';
+            }
+        }
+
+        function clearFilters() {
+            document.getElementById('areaMin').value = '';
+            document.getElementById('areaMax').value = '';
+            document.getElementById('intensityThreshold').value = '';
+            document.getElementById('enableIntensityColoring').value = 'false';
+            
+            document.getElementById('analysisResults').style.display = 'none';
+            showMessage('Filters cleared.', 'success');
+        }
+
+        async function processImage() {
+            if (!selectedFile) {
+                showMessage('Please select an image first.', 'error');
+                return;
+            }
+
+            const processBtn = document.getElementById('processBtn');
+            const loadingDiv = document.getElementById('loadingDiv');
+            
+            processBtn.disabled = true;
+            loadingDiv.style.display = 'block';
+            document.getElementById('resultsContainer').style.display = 'none';
+            clearMessage();
+
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+
+                const response = await fetch(`${API_BASE}/segment_file`, {
+                    method: 'POST',
+                    headers: {
+                        'X-API-Key': API_KEY
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Store original masks if they exist in the response
+                    if (result.original_masks_for_frontend) {
+                        originalMasksData = result.original_masks_for_frontend;
+                    }
+                    
+                    displayMasks(result.masks);
+                    
+                    // Update summary statistics if available
+                    if (result.summary_statistics) {
+                        updateCompactSummaryStatistics(result.summary_statistics);
+                    }
+                    
+                    showMessage(`Successfully generated ${result.num_masks} masks!`, 'success');
+                } else {
+                    showMessage(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage('Cannot connect to server. Make sure it\'s running and accessible.', 'error');
+            } finally {
+                processBtn.disabled = false;
+                loadingDiv.style.display = 'none';
+            }
+        }
+
+        function displayMasks(masks) {
+            masksData = masks;
+            const resultsContainer = document.getElementById('resultsContainer');
+            
+            // Reset interactive filters for new masks
+            filteredMasks.clear();
+            filterHistory = [];
+            showFilteredMasks = false;
+            
+            // Set up the original image
+            originalImageElement = document.getElementById('originalImage');
+            originalImageElement.src = document.getElementById('previewImage').src;
+            
+            // Set up canvas when image loads
+            originalImageElement.onload = function() {
+                setupCanvas();
+                setupImageHover();
+                drawAllMasksOverlay(); // Draw the mask overlay by default
+                updateFilterStatus(); // Initialize filter status
+            };
+            
+            resultsContainer.style.display = 'block';
+        }
+
+        function setupCanvas() {
+            maskOverlayCanvas = document.getElementById('maskOverlay');
+            hoverOverlayCanvas = document.getElementById('hoverOverlay');
+            const img = originalImageElement;
+            
+            // Match canvas sizes to image display size
+            const rect = img.getBoundingClientRect();
+            const width = img.offsetWidth;
+            const height = img.offsetHeight;
+            
+            // Setup mask overlay canvas
+            maskOverlayCanvas.width = width;
+            maskOverlayCanvas.height = height;
+            maskOverlayCanvas.style.width = width + 'px';
+            maskOverlayCanvas.style.height = height + 'px';
+            
+            // Setup hover overlay canvas
+            hoverOverlayCanvas.width = width;
+            hoverOverlayCanvas.height = height;
+            hoverOverlayCanvas.style.width = width + 'px';
+            hoverOverlayCanvas.style.height = height + 'px';
+        }
+
+        function setupImageHover() {
+            const container = document.getElementById('originalImageContainer');
+            
+            container.addEventListener('mousemove', (e) => {
+                const rect = originalImageElement.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (originalImageElement.naturalWidth / rect.width);
+                const y = (e.clientY - rect.top) * (originalImageElement.naturalHeight / rect.height);
+                
+                findMaskAtPosition(x, y);
+            });
+            
+            container.addEventListener('mouseleave', () => {
+                clearHoverOverlay();
+                clearMaskPreview();
+            });
+            
+            // Add click event for interactive filtering
+            container.addEventListener('click', (e) => {
+                const rect = originalImageElement.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (originalImageElement.naturalWidth / rect.width);
+                const y = (e.clientY - rect.top) * (originalImageElement.naturalHeight / rect.height);
+                
+                handleMaskClick(x, y);
+            });
+        }
+
+        async function findMaskAtPosition(x, y) {
+            // Choose which masks to search based on current display mode
+            const searchMasks = showingOriginalMasks ? originalMasksData : masksData;
+            
+            // Find the smallest mask that contains this point (most specific mask)
+            let foundMaskIndex = -1;
+            let smallestArea = Infinity;
+            
+            for (let i = 0; i < searchMasks.length; i++) {
+                const mask = searchMasks[i];
+                const isFiltered = showingOriginalMasks ? false : filteredMasks.has(i);
+                
+                // Skip filtered masks unless we're showing them (only for processed masks)
+                if (!showingOriginalMasks && isFiltered && !showFilteredMasks) {
+                    continue;
+                }
+                
+                // Check if point is within bounding box first (quick filter)
+                const [bx, by, bw, bh] = mask.bbox;
+                if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
+                    // This mask could contain the point and is smaller than current best
+                    if (mask.area < smallestArea) {
+                        // For now, we'll use bounding box check. In a more sophisticated version,
+                        // we could decode the mask image and check actual pixel values
+                        foundMaskIndex = i;
+                        smallestArea = mask.area;
+                    }
+                }
+            }
+            
+            if (foundMaskIndex !== -1 && foundMaskIndex !== currentHoveredMask) {
+                currentHoveredMask = foundMaskIndex;
+                showMaskPreview(foundMaskIndex, searchMasks);
+                highlightMaskOverlay(foundMaskIndex, searchMasks);
+            } else if (foundMaskIndex === -1) {
+                currentHoveredMask = null;
+                clearMaskPreview();
+                clearHoverOverlay();
+            }
+        }
+
+        function selectMask(index) {
+            showMaskPreview(index);
+            highlightMaskOverlay(index);
+            currentHoveredMask = index;
+        }
+
+        function showMaskPreview(maskIndex, masks) {
+            const mask = masks[maskIndex];
+            const previewContainer = document.getElementById('previewMaskContainer');
+            const maskDetailsSummary = document.getElementById('maskDetailsSummary');
+            
+            previewContainer.innerHTML = `
+                <img src="${mask.image}" alt="Mask ${maskIndex + 1}" class="preview-mask-image">
+            `;
+            
+            // Update simplified mask details
+            document.getElementById('maskAreaSummary').textContent = mask.area.toLocaleString();
+            document.getElementById('maskDiameterSummary').textContent = mask.max_feret_diameter ? mask.max_feret_diameter.toFixed(1) : 'N/A';
+            
+            // Update mean intensity if available
+            if (mask.pixel_stats && mask.pixel_stats.mean_intensity !== undefined) {
+                document.getElementById('maskIntensitySummary').textContent = mask.pixel_stats.mean_intensity.toFixed(1);
+            } else {
+                document.getElementById('maskIntensitySummary').textContent = 'N/A';
+            }
+            
+            maskDetailsSummary.style.display = 'block';
+        }
+
+        function clearMaskPreview() {
+            const previewContainer = document.getElementById('previewMaskContainer');
+            const maskDetailsSummary = document.getElementById('maskDetailsSummary');
+            
+            previewContainer.innerHTML = `
+                <div style="color: #666; font-style: italic; margin-top: 30px; text-align: center;">
+                    Hover over the image to preview masks
+                </div>
+            `;
+            maskDetailsSummary.style.display = 'none';
+        }
+
+        function highlightMaskOverlay(maskIndex, masks) {
+            const ctx = hoverOverlayCanvas.getContext('2d');
+            const mask = masks[maskIndex];
+            
+            // Clear previous overlay
+            ctx.clearRect(0, 0, hoverOverlayCanvas.width, hoverOverlayCanvas.height);
+            
+            // Draw bounding box highlight
+            const [bx, by, bw, bh] = mask.bbox;
+            const img = originalImageElement;
+            const scaleX = hoverOverlayCanvas.width / img.naturalWidth;
+            const scaleY = hoverOverlayCanvas.height / img.naturalHeight;
+            
+            ctx.strokeStyle = '#ffff00'; // Yellow for better visibility over red masks
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 4]);
+            ctx.strokeRect(bx * scaleX, by * scaleY, bw * scaleX, bh * scaleY);
+            
+            // Add label with mask info including diameter
+            const diameter = mask.max_feret_diameter ? mask.max_feret_diameter.toFixed(1) : 'N/A';
+            const labelText = `Mask #${maskIndex + 1}`;
+            const diameterText = `⌀ ${diameter}px`;
+            
+            // Add intensity info if available and intensity coloring is enabled
+            let intensityText = '';
+            const enableIntensityColoring = document.getElementById('enableIntensityColoringControl')?.value;
+            if (enableIntensityColoring && mask.pixel_stats) {
+                const intensityThreshold = parseFloat(document.getElementById('intensityThresholdControl')?.value || 127);
+                const meanIntensity = mask.pixel_stats.mean_intensity.toFixed(1);
+                const status = mask.pixel_stats.mean_intensity >= intensityThreshold ? 'HIGH' : 'LOW';
+                intensityText = `I: ${meanIntensity} (${status})`;
+            }
+            
+            // Calculate label dimensions
+            ctx.font = 'bold 12px Arial';
+            const texts = [labelText, diameterText, intensityText].filter(t => t);
+            const labelWidth = Math.max(...texts.map(t => ctx.measureText(t).width)) + 10;
+            const labelHeight = 15 * texts.length + 5;
+            
+            // Position label above mask if there's space, otherwise below
+            let labelX = bx * scaleX;
+            let labelY = by * scaleY - labelHeight;
+            if (labelY < 0) {
+                labelY = (by + bh) * scaleY + 5;
+            }
+            
+            // Draw label background
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.9)';
+            ctx.fillRect(labelX, labelY, labelWidth, labelHeight);
+            
+            // Draw label text
+            ctx.fillStyle = 'black';
+            ctx.font = 'bold 12px Arial';
+            ctx.fillText(labelText, labelX + 5, labelY + 15);
+            ctx.font = '11px Arial';
+            ctx.fillText(diameterText, labelX + 5, labelY + 28);
+            if (intensityText) {
+                ctx.fillText(intensityText, labelX + 5, labelY + 41);
+            }
+        }
+
+        function clearHoverOverlay() {
+            if (hoverOverlayCanvas) {
+                const ctx = hoverOverlayCanvas.getContext('2d');
+                ctx.clearRect(0, 0, hoverOverlayCanvas.width, hoverOverlayCanvas.height);
+            }
+        }
+
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById('messageDiv');
+            messageDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        function clearMessage() {
+            document.getElementById('messageDiv').innerHTML = '';
+        }
+
+        // Check server health on page load
+        async function checkServerHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const result = await response.json();
+                if (result.status === 'healthy') {
+                    showMessage('Server is ready!', 'success');
+                } else {
+                    showMessage('Server is not ready. Please wait...', 'error');
+                }
+            } catch (error) {
+                showMessage('Cannot connect to server. Make sure it\'s running and accessible.', 'error');
+            }
+        }
+
+        // Check server health when page loads
+        window.onload = checkServerHealth;
+
+        function generateMaskColors(numMasks) {
+            /**
+             * Generate distinct colors for each mask
+             */
+            const colors = [];
+            const enableIntensityColoring = document.getElementById('enableIntensityColoring')?.value;
+            const intensityThreshold = parseFloat(document.getElementById('intensityThreshold')?.value || 127);
+            
+            for (let i = 0; i < numMasks; i++) {
+                if (enableIntensityColoring === 'true' && intensityThreshold && masksData[i].pixel_stats) {
+                    // Use threshold coloring
+                    const meanIntensity = masksData[i].pixel_stats.mean_intensity;
+                    if (meanIntensity >= intensityThreshold) {
+                        colors.push('rgba(40, 167, 69, 0.4)'); // Green for high intensity
+                    } else {
+                        colors.push('rgba(220, 53, 69, 0.4)'); // Red for low intensity
+                    }
+                } else if (colorModeEnabled) {
+                    // Generate distinct colors using HSL
+                    const hue = (i * 360 / numMasks) % 360;
+                    const saturation = 70 + (i % 3) * 10; // 70-90%
+                    const lightness = 50 + (i % 2) * 20;  // 50-70%
+                    colors.push(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
+                } else {
+                    // Use semi-transparent red for all masks
+                    colors.push('rgba(255, 0, 0, 0.3)');
+                }
+            }
+            return colors;
+        }
+
+        async function drawAllMasksOverlay() {
+            /**
+             * Draw all masks on the overlay canvas
+             */
+            if (!maskOverlayCanvas || !maskOverlayVisible) {
+                return;
+            }
+
+            // Choose which masks to display
+            const displayMasks = showingOriginalMasks ? originalMasksData : masksData;
+            
+            if (displayMasks.length === 0) {
+                return;
+            }
+
+            const ctx = maskOverlayCanvas.getContext('2d');
+            ctx.clearRect(0, 0, maskOverlayCanvas.width, maskOverlayCanvas.height);
+
+            const img = originalImageElement;
+            const scaleX = maskOverlayCanvas.width / img.naturalWidth;
+            const scaleY = maskOverlayCanvas.height / img.naturalHeight;
+
+            const colors = generateMaskColors(displayMasks.length);
+            const enableIntensityColoring = document.getElementById('enableIntensityColoringControl')?.value;
+            const intensityThreshold = parseFloat(document.getElementById('intensityThresholdControl')?.value || 127);
+
+            // Draw each mask
+            for (let i = 0; i < displayMasks.length; i++) {
+                const mask = displayMasks[i];
+                const [bx, by, bw, bh] = mask.bbox;
+                
+                // For original masks, show all; for processed masks, respect filtering
+                const isFiltered = showingOriginalMasks ? false : filteredMasks.has(i);
+                
+                // Skip filtered masks unless we're showing them (only applies to processed masks)
+                if (!showingOriginalMasks && isFiltered && !showFilteredMasks) {
+                    continue;
+                }
+                
+                // Check intensity filtering for intensity-only modes
+                if (enableIntensityColoring === 'true' && intensityThreshold && mask.pixel_stats) {
+                    const meanIntensity = mask.pixel_stats.mean_intensity;
+                    const isHighIntensity = meanIntensity >= intensityThreshold;
+                    
+                    // Skip masks based on intensity-only filters
+                    if (showHighIntensityOnly && !isHighIntensity) {
+                        continue;
+                    }
+                    if (showLowIntensityOnly && isHighIntensity) {
+                        continue;
+                    }
+                }
+                
+                // Determine fill and stroke colors based on coloring mode
+                let fillStyle, strokeStyle;
+                if (enableIntensityColoring === 'true' && mask.pixel_stats && intensityThreshold) {
+                    const meanIntensity = mask.pixel_stats.mean_intensity;
+                    const isHighIntensity = meanIntensity >= intensityThreshold;
+                    
+                    if (isHighIntensity) {
+                        fillStyle = 'rgba(40, 167, 69, 0.6)'; // Green fill for high intensity
+                        strokeStyle = 'rgba(40, 167, 69, 0.8)';
+                    } else {
+                        fillStyle = 'rgba(220, 53, 69, 0.4)'; // Red fill for low intensity
+                        strokeStyle = 'rgba(220, 53, 69, 0.8)';
+                    }
+                } else {
+                    fillStyle = colorModeEnabled ? colors[i] : 'rgba(255, 0, 0, 0.3)';
+                    strokeStyle = colorModeEnabled ? colors[i].replace('0.3)', '0.8)') : 'rgba(255, 0, 0, 0.6)';
+                }
+                
+                if (isFiltered) {
+                    // Make filtered masks more transparent and add strikethrough effect
+                    fillStyle = fillStyle.replace(/0\.\d+\)/, '0.1)');
+                    strokeStyle = 'rgba(128, 128, 128, 0.5)'; // Gray and transparent
+                }
+                
+                // Draw filled rectangle for the mask area
+                ctx.fillStyle = fillStyle;
+                ctx.fillRect(bx * scaleX, by * scaleY, bw * scaleX, bh * scaleY);
+                
+                // Draw border
+                ctx.strokeStyle = strokeStyle;
+                ctx.lineWidth = isFiltered ? 1 : 1;
+                ctx.setLineDash(isFiltered ? [3, 3] : []);
+                ctx.strokeRect(bx * scaleX, by * scaleY, bw * scaleX, bh * scaleY);
+                
+                // Add strikethrough for filtered masks
+                if (isFiltered && showFilteredMasks) {
+                    ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([]);
+                    // Draw diagonal line through the mask
+                    ctx.beginPath();
+                    ctx.moveTo(bx * scaleX, by * scaleY);
+                    ctx.lineTo((bx + bw) * scaleX, (by + bh) * scaleY);
+                    ctx.stroke();
+                    ctx.moveTo((bx + bw) * scaleX, by * scaleY);
+                    ctx.lineTo(bx * scaleX, (by + bh) * scaleY);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function toggleMaskOverlay() {
+            /**
+             * Toggle the visibility of the mask overlay
+             */
+            maskOverlayVisible = !maskOverlayVisible;
+            const toggle = document.getElementById('maskOverlayToggle');
+            
+            if (maskOverlayVisible) {
+                toggle.classList.add('active');
+                toggle.textContent = '🎭 Hide All Masks';
+                drawAllMasksOverlay();
+            } else {
+                toggle.classList.remove('active');
+                toggle.textContent = '🎭 Show All Masks';
+                if (maskOverlayCanvas) {
+                    const ctx = maskOverlayCanvas.getContext('2d');
+                    ctx.clearRect(0, 0, maskOverlayCanvas.width, maskOverlayCanvas.height);
+                }
+            }
+        }
+
+        function toggleColorMode() {
+            /**
+             * Toggle between color mode and single-color mode
+             */
+            colorModeEnabled = !colorModeEnabled;
+            const toggle = document.getElementById('colorOverlayToggle');
+            
+            if (colorModeEnabled) {
+                toggle.classList.add('active');
+                toggle.textContent = '🌈 Single Color';
+            } else {
+                toggle.classList.remove('active');
+                toggle.textContent = '🌈 Color Mode';
+            }
+            
+            // Redraw overlay with new colors
+            if (maskOverlayVisible) {
+                drawAllMasksOverlay();
+            }
+        }
+
+        function handleMaskClick(x, y) {
+            /**
+             * Handle clicks on masks for interactive filtering
+             */
+            // Find the mask at the clicked position
+            let clickedMaskIndex = -1;
+            let smallestArea = Infinity;
+            
+            for (let i = 0; i < masksData.length; i++) {
+                const mask = masksData[i];
+                
+                // Check if point is within bounding box
+                const [bx, by, bw, bh] = mask.bbox;
+                if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
+                    // Find the smallest mask (most specific)
+                    if (mask.area < smallestArea) {
+                        clickedMaskIndex = i;
+                        smallestArea = mask.area;
+                    }
+                }
+            }
+            
+            if (clickedMaskIndex !== -1) {
+                toggleMaskFilter(clickedMaskIndex);
+            }
+        }
+
+        function toggleMaskFilter(maskIndex) {
+            /**
+             * Toggle the filter state of a specific mask
+             */
+            if (filteredMasks.has(maskIndex)) {
+                // Unfilter the mask
+                filteredMasks.delete(maskIndex);
+                // Remove from history if it was the last action
+                if (filterHistory.length > 0 && filterHistory[filterHistory.length - 1] === maskIndex) {
+                    filterHistory.pop();
+                }
+            } else {
+                // Filter out the mask
+                filteredMasks.add(maskIndex);
+                filterHistory.push(maskIndex);
+            }
+            
+            updateFilterStatus();
+            drawAllMasksOverlay();
+            updateSummaryStatisticsRealTime(); // Add real-time update
+        }
+
+        function undoLastFilter() {
+            /**
+             * Undo the last filtering action
+             */
+            if (filterHistory.length > 0) {
+                const lastFiltered = filterHistory.pop();
+                filteredMasks.delete(lastFiltered);
+                updateFilterStatus();
+                drawAllMasksOverlay();
+                updateSummaryStatisticsRealTime(); // Add real-time update
+            }
+        }
+
+        function toggleFilteredVisibility() {
+            /**
+             * Toggle visibility of filtered masks
+             */
+            showFilteredMasks = !showFilteredMasks;
+            const btn = document.querySelector('.filter-control-btn.secondary');
+            btn.textContent = showFilteredMasks ? '👁️ Hide Hidden' : '👁️ Show Hidden';
+            updateFilterStatus();
+            drawAllMasksOverlay();
+        }
+
+        function resetInteractiveFilters() {
+            /**
+             * Reset all interactive filters
+             */
+            filteredMasks.clear();
+            filterHistory = [];
+            showFilteredMasks = false;
+            const btn = document.querySelector('.filter-control-btn.secondary');
+            btn.textContent = '👁️ Show Hidden';
+            updateFilterStatus();
+            drawAllMasksOverlay();
+            updateSummaryStatisticsRealTime(); // Add real-time update
+        }
+
+        function updateFilterStatus() {
+            /**
+             * Update the filter status display
+             */
+            const statusDiv = document.getElementById('filterStatus');
+            const totalMasks = masksData.length;
+            const filteredCount = filteredMasks.size;
+            const visibleCount = showFilteredMasks ? totalMasks : totalMasks - filteredCount;
+            
+            if (filteredCount === 0) {
+                statusDiv.textContent = 'Click masks to filter them out';
+            } else {
+                statusDiv.textContent = `${filteredCount} mask(s) filtered • ${visibleCount} visible`;
+            }
+        }
+
+        function updateIntensityColoring() {
+            /**
+             * Update the intensity-based coloring
+             */
+            drawAllMasksOverlay();
+            
+            // Update summary statistics with new intensity classification
+            updateSummaryFromCurrentData();
+        }
+        
+        function updateAreaFiltering() {
+            /**
+             * Update the area-based filtering in real-time
+             */
+            if (!masksData || masksData.length === 0) return;
+            
+            // Get current area filter values
+            const areaMinInput = document.getElementById('areaMinControl')?.value;
+            const areaMaxInput = document.getElementById('areaMaxControl')?.value;
+            
+            // Only apply filtering if at least one area constraint is set
+            const hasAreaConstraints = areaMinInput || areaMaxInput;
+            
+            if (!hasAreaConstraints) {
+                // No area constraints - remove all area-based filtering but keep manual filters
+                const manuallyFilteredMasks = new Set();
+                filteredMasks.forEach(index => {
+                    // Keep manually filtered masks (we can't easily distinguish them, so we'll clear all for now)
+                    // In a more sophisticated implementation, we'd track the reason for filtering
+                });
+                filteredMasks = manuallyFilteredMasks;
+                
+                // Redraw and update
+                drawAllMasksOverlay();
+                updateSummaryFromCurrentData();
+                updateFilterStatus();
+                return;
+            }
+            
+            const areaMin = areaMinInput ? parseInt(areaMinInput) : 0;
+            const areaMax = areaMaxInput ? parseInt(areaMaxInput) : Number.MAX_SAFE_INTEGER;
+            
+            // For now, we'll clear all filters and reapply area filtering
+            // In a more sophisticated implementation, we'd track filter reasons
+            const newFilteredMasks = new Set();
+            
+            // Apply area filtering
+            for (let i = 0; i < masksData.length; i++) {
+                const mask = masksData[i];
+                if (mask && mask.area) {
+                    const passesAreaFilter = mask.area >= areaMin && mask.area <= areaMax;
+                    if (!passesAreaFilter) {
+                        newFilteredMasks.add(i);
+                    }
+                }
+            }
+            
+            // Update the filtered masks set
+            filteredMasks = newFilteredMasks;
+            
+            // Redraw overlay and update statistics
+            drawAllMasksOverlay();
+            updateSummaryFromCurrentData();
+            updateFilterStatus();
+        }
+        
+        function updateSummaryFromCurrentData() {
+            /**
+             * Update summary statistics based on current data and settings
+             */
+            if (!masksData || masksData.length === 0) return;
+            
+            // Get current intensity settings
+            const enableIntensityColoring = document.getElementById('enableIntensityColoringControl')?.value;
+            const intensityThreshold = parseFloat(document.getElementById('intensityThresholdControl')?.value || 127);
+            
+            // Calculate summary statistics locally for visible (non-filtered) masks only
+            let summary = {
+                total_masks: masksData.length - filteredMasks.size, // Only count visible masks
+                classification_enabled: enableIntensityColoring === 'true' && intensityThreshold,
+                diameter_stats: {},
+                intensity_analysis: {}
+            };
+            
+            // Calculate diameter statistics for visible masks only
+            let diameters = [];
+            let intensities = [];
+            
+            for (let i = 0; i < masksData.length; i++) {
+                // Skip filtered masks
+                if (filteredMasks.has(i)) {
+                    continue;
+                }
+                
+                const mask = masksData[i];
+                if (mask.pixel_stats) {
+                    if (mask.pixel_stats.max_feret_diameter && mask.pixel_stats.max_feret_diameter > 0) {
+                        diameters.push(mask.pixel_stats.max_feret_diameter);
+                    }
+                    if (mask.pixel_stats.mean_intensity !== undefined) {
+                        intensities.push(mask.pixel_stats.mean_intensity);
+                    }
+                }
+            }
+            
+            // Calculate diameter stats
+            if (diameters.length > 0) {
+                const diameterMean = diameters.reduce((a, b) => a + b, 0) / diameters.length;
+                const diameterStd = Math.sqrt(diameters.reduce((a, b) => a + Math.pow(b - diameterMean, 2), 0) / diameters.length);
+                const diameterCV = diameterMean > 0 ? (diameterStd / diameterMean) * 100 : 0; // Calculate CV as percentage
+                summary.diameter_stats = {
+                    mean: diameterMean,
+                    std: diameterStd,
+                    cv: diameterCV
+                };
+            }
+            
+            // Calculate intensity statistics if classification is enabled
+            if (summary.classification_enabled && intensities.length > 0) {
+                const overallMean = intensities.reduce((a, b) => a + b, 0) / intensities.length;
+                const overallStd = Math.sqrt(intensities.reduce((a, b) => a + Math.pow(b - overallMean, 2), 0) / intensities.length);
+                
+                const highIntensityValues = intensities.filter(i => i >= intensityThreshold);
+                const lowIntensityValues = intensities.filter(i => i < intensityThreshold);
+                
+                summary.intensity_analysis = {
+                    overall: {
+                        mean: overallMean,
+                        std: overallStd
+                    },
+                    high_intensity: {},
+                    low_intensity: {}
+                };
+                
+                if (highIntensityValues.length > 0) {
+                    const highMean = highIntensityValues.reduce((a, b) => a + b, 0) / highIntensityValues.length;
+                    const highStd = Math.sqrt(highIntensityValues.reduce((a, b) => a + Math.pow(b - highMean, 2), 0) / highIntensityValues.length);
+                    summary.intensity_analysis.high_intensity = {
+                        count: highIntensityValues.length,
+                        mean: highMean,
+                        std: highStd
+                    };
+                }
+                
+                if (lowIntensityValues.length > 0) {
+                    const lowMean = lowIntensityValues.reduce((a, b) => a + b, 0) / lowIntensityValues.length;
+                    const lowStd = Math.sqrt(lowIntensityValues.reduce((a, b) => a + Math.pow(b - lowMean, 2), 0) / lowIntensityValues.length);
+                    summary.intensity_analysis.low_intensity = {
+                        count: lowIntensityValues.length,
+                        mean: lowMean,
+                        std: lowStd
+                    };
+                }
+            }
+            
+            updateCompactSummaryStatistics(summary);
+        }
+        
+        function updateIntensityAnalysis() {
+            /**
+             * Calculate and display intensity analysis
+             */
+            const enableIntensityColoring = document.getElementById('enableIntensityColoring')?.value;
+            const intensityThreshold = parseFloat(document.getElementById('intensityThreshold')?.value || 127);
+            const analysisDiv = document.getElementById('intensityAnalysis');
+            
+            if (enableIntensityColoring !== 'true' || !intensityThreshold) {
+                analysisDiv?.style.setProperty('display', 'none');
+                return;
+            }
+            
+            let aboveThresholdCount = 0;
+            let belowThresholdCount = 0;
+            
+            // Count masks above and below threshold
+            for (let i = 0; i < masksData.length; i++) {
+                const mask = masksData[i];
+                const isFiltered = filteredMasks.has(i);
+                
+                // Skip filtered masks unless we're showing them
+                if (isFiltered && !showFilteredMasks) {
+                    continue;
+                }
+                
+                if (mask.pixel_stats) {
+                    const meanIntensity = mask.pixel_stats.mean_intensity;
+                    if (meanIntensity >= intensityThreshold) {
+                        aboveThresholdCount++;
+                    } else {
+                        belowThresholdCount++;
+                    }
+                }
+            }
+            
+            // Update display
+            document.getElementById('aboveThresholdCount').textContent = aboveThresholdCount;
+            document.getElementById('belowThresholdCount').textContent = belowThresholdCount;
+            document.getElementById('currentThreshold').textContent = intensityThreshold.toFixed(1);
+            
+            analysisDiv.style.display = 'block';
+            
+            // Update mask count to include intensity info
+            const maskCount = document.getElementById('maskCount');
+            const totalVisible = showFilteredMasks ? masksData.length : masksData.length - filteredMasks.size;
+            maskCount.textContent = `Found ${masksData.length} objects/regions • ${totalVisible} visible`;
+        }
+        
+        function updatePreprocessingAnalysis(result) {
+            /**
+             * Update the preprocessing analysis display
+             */
+            const preprocessingDiv = document.getElementById('preprocessingAnalysis');
+            if (!preprocessingDiv) return;
+            
+            // Show preprocessing results if available
+            if (result.original_count !== undefined) {
+                const originalCount = result.original_count;
+                const preprocessedCount = originalCount - (result.preprocessing_removed || 0);
+                const finalCount = result.num_masks;
+                const preprocessingRemoved = result.preprocessing_removed || 0;
+                const userFilterRemoved = result.user_filter_removed || 0;
+                
+                // Update display
+                document.getElementById('originalCount').textContent = originalCount;
+                document.getElementById('preprocessedCount').textContent = preprocessedCount;
+                document.getElementById('preprocessingRemoved').textContent = preprocessingRemoved;
+                document.getElementById('userFilterRemoved').textContent = userFilterRemoved;
+                
+                preprocessingDiv.style.display = 'block';
+            } else {
+                preprocessingDiv.style.display = 'none';
+            }
+        }
+
+        function updateSummaryStatistics(summaryStatistics) {
+            /**
+             * Update the summary statistics display
+             */
+            const summaryDiv = document.getElementById('summaryStatistics');
+            if (!summaryDiv) return;
+            
+            // Show the summary statistics section
+            summaryDiv.style.display = 'block';
+            
+            // Update overall counts
+            document.getElementById('overallCount').textContent = summaryStatistics.total_masks || 0;
+            
+            // Update diameter statistics
+            if (summaryStatistics.diameter_stats && Object.keys(summaryStatistics.diameter_stats).length > 0) {
+                const diameterStats = summaryStatistics.diameter_stats;
+                document.getElementById('avgDiameter').textContent = diameterStats.mean ? diameterStats.mean.toFixed(1) : '-';
+                document.getElementById('diameterSD').textContent = diameterStats.std ? diameterStats.std.toFixed(1) : '-';
+                document.getElementById('diameterCV').textContent = diameterStats.cv ? diameterStats.cv.toFixed(1) + '%' : '-';
+            } else {
+                document.getElementById('avgDiameter').textContent = '-';
+                document.getElementById('diameterSD').textContent = '-';
+                document.getElementById('diameterCV').textContent = '-';
+            }
+            
+            // Update intensity statistics
+            if (summaryStatistics.classification_enabled && summaryStatistics.intensity_analysis) {
+                const intensityAnalysis = summaryStatistics.intensity_analysis;
+                
+                // Overall intensity statistics
+                if (intensityAnalysis.overall) {
+                    const overall = intensityAnalysis.overall;
+                    document.getElementById('overallIntensity').textContent = overall.mean ? overall.mean.toFixed(1) : '-';
+                    document.getElementById('overallIntensitySD').textContent = overall.std ? overall.std.toFixed(1) : '-';
+                }
+                
+                // High intensity group statistics
+                if (intensityAnalysis.high_intensity && Object.keys(intensityAnalysis.high_intensity).length > 0) {
+                    const highIntensity = intensityAnalysis.high_intensity;
+                    document.getElementById('highIntensityCountStat').textContent = highIntensity.count || 0;
+                    document.getElementById('highIntensityAvg').textContent = highIntensity.mean ? highIntensity.mean.toFixed(1) : '-';
+                    document.getElementById('highIntensitySD').textContent = highIntensity.std ? highIntensity.std.toFixed(1) : '-';
+                } else {
+                    document.getElementById('highIntensityCountStat').textContent = '0';
+                    document.getElementById('highIntensityAvg').textContent = '-';
+                    document.getElementById('highIntensitySD').textContent = '-';
+                }
+                
+                // Low intensity group statistics
+                if (intensityAnalysis.low_intensity && Object.keys(intensityAnalysis.low_intensity).length > 0) {
+                    const lowIntensity = intensityAnalysis.low_intensity;
+                    document.getElementById('lowIntensityCountStat').textContent = lowIntensity.count || 0;
+                    document.getElementById('lowIntensityAvg').textContent = lowIntensity.mean ? lowIntensity.mean.toFixed(1) : '-';
+                    document.getElementById('lowIntensitySD').textContent = lowIntensity.std ? lowIntensity.std.toFixed(1) : '-';
+                } else {
+                    document.getElementById('lowIntensityCountStat').textContent = '0';
+                    document.getElementById('lowIntensityAvg').textContent = '-';
+                    document.getElementById('lowIntensitySD').textContent = '-';
+                }
+            } else {
+                // No intensity classification enabled - show overall stats only
+                document.getElementById('overallIntensity').textContent = '-';
+                document.getElementById('overallIntensitySD').textContent = '-';
+                document.getElementById('highIntensityCountStat').textContent = '-';
+                document.getElementById('lowIntensityCountStat').textContent = '-';
+                document.getElementById('highIntensityAvg').textContent = '-';
+                document.getElementById('lowIntensityAvg').textContent = '-';
+                document.getElementById('highIntensitySD').textContent = '-';
+                document.getElementById('lowIntensitySD').textContent = '-';
+            }
+        }
+
+        function applyFiltersFromControls() {
+            /**
+             * Apply filters using the compact filter controls
+             */
+            if (!selectedFile) {
+                showMessage('Please select an image first.', 'error');
+                return;
+            }
+
+            const filters = getFiltersFromControls();
+            if (Object.keys(filters).length === 0) {
+                showMessage('Please set at least one filter value.', 'error');
+                return;
+            }
+
+            const processBtn = document.getElementById('processBtn');
+            const loadingDiv = document.getElementById('loadingDiv');
+            
+            processBtn.disabled = true;
+            loadingDiv.style.display = 'block';
+            clearMessage();
+
+            processImageWithFilters(filters);
+        }
+
+        function getFiltersFromControls() {
+            /**
+             * Get filter values from the compact controls
+             */
+            const filters = {};
+            
+            const areaMin = document.getElementById('areaMinControl').value;
+            const areaMax = document.getElementById('areaMaxControl').value;
+            const intensityThreshold = document.getElementById('intensityThresholdControl').value;
+            const enableIntensityColoring = document.getElementById('enableIntensityColoringControl').value;
+            
+            if (areaMin) filters.area_min = parseInt(areaMin);
+            if (areaMax) filters.area_max = parseInt(areaMax);
+            if (intensityThreshold) filters.intensity_threshold = parseFloat(intensityThreshold);
+            if (enableIntensityColoring === 'true') filters.enable_intensity_coloring = true;
+            
+            return filters;
+        }
+
+        function clearFiltersControls() {
+            /**
+             * Clear the compact filter controls
+             */
+            document.getElementById('areaMinControl').value = '';
+            document.getElementById('areaMaxControl').value = '';
+            document.getElementById('intensityThresholdControl').value = '';
+            document.getElementById('enableIntensityColoringControl').value = 'false';
+            
+            showMessage('Filters cleared.', 'success');
+        }
+
+        async function processImageWithFilters(filters) {
+            /**
+             * Process image with specific filters
+             */
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('filters', JSON.stringify(filters));
+
+                const response = await fetch(`${API_BASE}/segment_file`, {
+                    method: 'POST',
+                    headers: {
+                        'X-API-Key': API_KEY
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Store original masks if they exist in the response
+                    if (result.original_masks_for_frontend) {
+                        originalMasksData = result.original_masks_for_frontend;
+                    }
+                    
+                    displayMasks(result.masks);
+                    
+                    // Update summary statistics if available
+                    if (result.summary_statistics) {
+                        updateCompactSummaryStatistics(result.summary_statistics);
+                    }
+                    
+                    showMessage(`Successfully filtered to ${result.num_masks} objects! (Filters applied)`, 'success');
+                } else {
+                    showMessage(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage('Cannot connect to server. Make sure it\'s running and accessible.', 'error');
+            } finally {
+                const processBtn = document.getElementById('processBtn');
+                const loadingDiv = document.getElementById('loadingDiv');
+                processBtn.disabled = false;
+                loadingDiv.style.display = 'none';
+            }
+        }
+
+        function updateCompactSummaryStatistics(summaryStatistics) {
+            /**
+             * Update the compact summary statistics display
+             */
+            const summaryTableCompact = document.getElementById('summaryTableCompact');
+            if (!summaryTableCompact) return;
+            
+            // Show the summary statistics section
+            summaryTableCompact.style.display = 'block';
+            
+            // Update basic statistics
+            document.getElementById('totalMasksCompact').textContent = summaryStatistics.total_masks || 0;
+            
+            // Update diameter statistics
+            if (summaryStatistics.diameter_stats && Object.keys(summaryStatistics.diameter_stats).length > 0) {
+                const diameterStats = summaryStatistics.diameter_stats;
+                document.getElementById('avgDiameterCompact').textContent = diameterStats.mean ? diameterStats.mean.toFixed(1) + ' px' : '-';
+                document.getElementById('diameterSDCompact').textContent = diameterStats.std ? diameterStats.std.toFixed(1) + ' px' : '-';
+                document.getElementById('diameterCVCompact').textContent = diameterStats.cv ? diameterStats.cv.toFixed(1) + '%' : '-';
+            } else {
+                document.getElementById('avgDiameterCompact').textContent = '-';
+                document.getElementById('diameterSDCompact').textContent = '-';
+                document.getElementById('diameterCVCompact').textContent = '-';
+            }
+            
+            // Update intensity statistics if enabled
+            if (summaryStatistics.classification_enabled && summaryStatistics.intensity_analysis) {
+                const intensityAnalysis = summaryStatistics.intensity_analysis;
+                
+                // Show intensity rows
+                document.getElementById('intensityStatsRow').style.display = 'table-row';
+                document.getElementById('highIntensityRow').style.display = 'table-row';
+                document.getElementById('highIntensityStatsRow').style.display = 'table-row';
+                document.getElementById('lowIntensityRow').style.display = 'table-row';
+                document.getElementById('lowIntensityStatsRow').style.display = 'table-row';
+                
+                // High intensity group statistics
+                if (intensityAnalysis.high_intensity && Object.keys(intensityAnalysis.high_intensity).length > 0) {
+                    const highIntensity = intensityAnalysis.high_intensity;
+                    document.getElementById('highCountCompact').textContent = highIntensity.count || 0;
+                    document.getElementById('highStatsCompact').textContent = 
+                        highIntensity.mean && highIntensity.std ? 
+                        `${highIntensity.mean.toFixed(1)} ± ${highIntensity.std.toFixed(1)}` : '-';
+                } else {
+                    document.getElementById('highCountCompact').textContent = '0';
+                    document.getElementById('highStatsCompact').textContent = '-';
+                }
+                
+                // Low intensity group statistics
+                if (intensityAnalysis.low_intensity && Object.keys(intensityAnalysis.low_intensity).length > 0) {
+                    const lowIntensity = intensityAnalysis.low_intensity;
+                    document.getElementById('lowCountCompact').textContent = lowIntensity.count || 0;
+                    document.getElementById('lowStatsCompact').textContent = 
+                        lowIntensity.mean && lowIntensity.std ? 
+                        `${lowIntensity.mean.toFixed(1)} ± ${lowIntensity.std.toFixed(1)}` : '-';
+                } else {
+                    document.getElementById('lowCountCompact').textContent = '0';
+                    document.getElementById('lowStatsCompact').textContent = '-';
+                }
+            } else {
+                // Hide intensity rows when classification is not enabled
+                document.getElementById('intensityStatsRow').style.display = 'none';
+                document.getElementById('highIntensityRow').style.display = 'none';
+                document.getElementById('highIntensityStatsRow').style.display = 'none';
+                document.getElementById('lowIntensityRow').style.display = 'none';
+                document.getElementById('lowIntensityStatsRow').style.display = 'none';
+            }
+        }
+
+        function toggleOriginalMasks() {
+            /**
+             * Toggle between showing original masks and processed masks
+             */
+            showingOriginalMasks = !showingOriginalMasks;
+            const toggle = document.getElementById('originalMasksToggle');
+            
+            if (showingOriginalMasks) {
+                toggle.classList.add('active');
+                toggle.textContent = '📋 Show Processed';
+                // Clear interactive filters when showing original masks
+                clearHoverOverlay();
+                clearMaskPreview();
+            } else {
+                toggle.classList.remove('active');
+                toggle.textContent = '📋 Show Pre-filter';
+            }
+            
+            // Redraw the overlay with the appropriate masks
+            if (maskOverlayVisible) {
+                drawAllMasksOverlay();
+            }
+        }
+
+        function updateSummaryStatisticsRealTime() {
+            /**
+             * Recalculate and update summary statistics based on currently visible masks
+             */
+            if (!masksData || masksData.length === 0) return;
+            
+            // Get current intensity settings
+            const enableIntensityColoring = document.getElementById('enableIntensityColoringControl')?.value;
+            const intensityThreshold = parseFloat(document.getElementById('intensityThresholdControl')?.value || 127);
+            
+            // Get currently visible masks (excluding filtered ones and considering intensity filters)
+            const visibleMasks = [];
+            for (let i = 0; i < masksData.length; i++) {
+                // Skip manually filtered masks
+                if (filteredMasks.has(i)) {
+                    continue;
+                }
+                
+                const mask = masksData[i];
+                
+                // Apply intensity-only filtering if enabled
+                if (enableIntensityColoring === 'true' && intensityThreshold && mask.pixel_stats) {
+                    const meanIntensity = mask.pixel_stats.mean_intensity;
+                    const isHighIntensity = meanIntensity >= intensityThreshold;
+                    
+                    // Skip masks based on intensity-only filters
+                    if (showHighIntensityOnly && !isHighIntensity) {
+                        continue;
+                    }
+                    if (showLowIntensityOnly && isHighIntensity) {
+                        continue;
+                    }
+                }
+                
+                visibleMasks.push(mask);
+            }
+            
+            // Calculate summary statistics for visible masks only
+            let summary = {
+                total_masks: visibleMasks.length,
+                classification_enabled: enableIntensityColoring === 'true' && intensityThreshold,
+                diameter_stats: {},
+                intensity_analysis: {}
+            };
+            
+            // Calculate diameter statistics from visible masks
+            let diameters = [];
+            let intensities = [];
+            
+            for (let mask of visibleMasks) {
+                if (mask.pixel_stats) {
+                    if (mask.pixel_stats.max_feret_diameter && mask.pixel_stats.max_feret_diameter > 0) {
+                        diameters.push(mask.pixel_stats.max_feret_diameter);
+                    } else if (mask.max_feret_diameter && mask.max_feret_diameter > 0) {
+                        diameters.push(mask.max_feret_diameter);
+                    }
+                    
+                    if (mask.pixel_stats.mean_intensity !== undefined) {
+                        intensities.push(mask.pixel_stats.mean_intensity);
+                    }
+                } else if (mask.max_feret_diameter && mask.max_feret_diameter > 0) {
+                    diameters.push(mask.max_feret_diameter);
+                }
+            }
+            
+            // Calculate diameter stats
+            if (diameters.length > 0) {
+                const diameterMean = diameters.reduce((a, b) => a + b, 0) / diameters.length;
+                const diameterStd = Math.sqrt(diameters.reduce((a, b) => a + Math.pow(b - diameterMean, 2), 0) / diameters.length);
+                const diameterCV = diameterMean > 0 ? (diameterStd / diameterMean) * 100 : 0; // Calculate CV as percentage
+                summary.diameter_stats = {
+                    mean: diameterMean,
+                    std: diameterStd,
+                    cv: diameterCV
+                };
+            }
+            
+            // Calculate intensity statistics if classification is enabled
+            if (summary.classification_enabled && intensities.length > 0) {
+                const overallMean = intensities.reduce((a, b) => a + b, 0) / intensities.length;
+                const overallStd = Math.sqrt(intensities.reduce((a, b) => a + Math.pow(b - overallMean, 2), 0) / intensities.length);
+                
+                const highIntensityValues = intensities.filter(i => i >= intensityThreshold);
+                const lowIntensityValues = intensities.filter(i => i < intensityThreshold);
+                
+                summary.intensity_analysis = {
+                    overall: {
+                        mean: overallMean,
+                        std: overallStd
+                    },
+                    high_intensity: {},
+                    low_intensity: {}
+                };
+                
+                if (highIntensityValues.length > 0) {
+                    const highMean = highIntensityValues.reduce((a, b) => a + b, 0) / highIntensityValues.length;
+                    const highStd = Math.sqrt(highIntensityValues.reduce((a, b) => a + Math.pow(b - highMean, 2), 0) / highIntensityValues.length);
+                    summary.intensity_analysis.high_intensity = {
+                        count: highIntensityValues.length,
+                        mean: highMean,
+                        std: highStd
+                    };
+                }
+                
+                if (lowIntensityValues.length > 0) {
+                    const lowMean = lowIntensityValues.reduce((a, b) => a + b, 0) / lowIntensityValues.length;
+                    const lowStd = Math.sqrt(lowIntensityValues.reduce((a, b) => a + Math.pow(b - lowMean, 2), 0) / lowIntensityValues.length);
+                    summary.intensity_analysis.low_intensity = {
+                        count: lowIntensityValues.length,
+                        mean: lowMean,
+                        std: lowStd
+                    };
+                }
+            }
+            
+            // Update the display
+            updateCompactSummaryStatistics(summary);
+        }
+
+        function toggleHighIntensityOnly() {
+            /**
+             * Toggle showing only high intensity masks
+             */
+            showHighIntensityOnly = !showHighIntensityOnly;
+            const toggle = document.getElementById('highIntensityToggle');
+            
+            if (showHighIntensityOnly) {
+                toggle.classList.add('active');
+                // Disable low intensity only mode
+                showLowIntensityOnly = false;
+                const lowToggle = document.getElementById('lowIntensityToggle');
+                lowToggle.classList.remove('active');
+            } else {
+                toggle.classList.remove('active');
+            }
+            
+            // Redraw overlay with new filter
+            if (maskOverlayVisible) {
+                drawAllMasksOverlay();
+            }
+            
+            // Update summary statistics
+            updateSummaryStatisticsRealTime();
+        }
+
+        function toggleLowIntensityOnly() {
+            /**
+             * Toggle showing only low intensity masks
+             */
+            showLowIntensityOnly = !showLowIntensityOnly;
+            const toggle = document.getElementById('lowIntensityToggle');
+            
+            if (showLowIntensityOnly) {
+                toggle.classList.add('active');
+                // Disable high intensity only mode
+                showHighIntensityOnly = false;
+                const highToggle = document.getElementById('highIntensityToggle');
+                highToggle.classList.remove('active');
+            } else {
+                toggle.classList.remove('active');
+            }
+            
+            // Redraw overlay with new filter
+            if (maskOverlayVisible) {
+                drawAllMasksOverlay();
+            }
+            
+            // Update summary statistics
+            updateSummaryStatisticsRealTime();
+        }
+    </script>
+</body>
+</html>

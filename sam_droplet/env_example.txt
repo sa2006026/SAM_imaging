@@ -1,0 +1,59 @@
+# SAM Droplet Segmentation - Environment Configuration
+# Copy this file to .env and customize the values
+
+# ===== SECURITY =====
+# API Keys: format is "key:name:hourly_limit,key2:name2:limit2"
+# Generate secure random keys for production!
+API_KEYS=sam-prod-key-abc123:MainClient:100,sam-backup-key-def456:BackupClient:50
+
+# Admin access key for monitoring endpoints
+ADMIN_API_KEY=admin-super-secret-change-me-in-production
+
+# Health check key for monitoring services (optional)
+HEALTH_CHECK_KEY=health-monitor-key-xyz789
+
+# ===== SERVER CONFIGURATION =====
+# Server host and port
+FLASK_HOST=0.0.0.0
+FLASK_PORT=9487
+FLASK_DEBUG=False
+
+# CORS origins (comma separated)
+ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+
+# ===== MODEL CONFIGURATION =====
+# Path to SAM model file
+SAM_MODEL_PATH=model/mobile_sam.pt
+
+# ===== PERFORMANCE TUNING =====
+# CPU thread configuration
+OMP_NUM_THREADS=4
+MKL_NUM_THREADS=4
+
+# GPU configuration
+CUDA_VISIBLE_DEVICES=0
+
+# ===== FILE UPLOAD LIMITS =====
+# Maximum file size in MB
+MAX_FILE_SIZE_MB=50
+
+# ===== RATE LIMITING =====
+# Default rate limit for unauthenticated requests
+DEFAULT_RATE_LIMIT=10
+
+# ===== LOGGING =====
+# Log level: DEBUG, INFO, WARNING, ERROR
+LOG_LEVEL=INFO
+
+# Log file path (optional)
+LOG_FILE=logs/sam_droplet.log
+
+# ===== MONITORING =====
+# Enable usage tracking
+ENABLE_USAGE_TRACKING=true
+
+# ===== CLOUDFLARE TUNNEL =====
+# If using Cloudflare tunnel, set these for additional security
+CF_TUNNEL_TOKEN=your-tunnel-token-here
+CF_ACCESS_CLIENT_ID=your-access-client-id
+CF_ACCESS_CLIENT_SECRET=your-access-client-secret 

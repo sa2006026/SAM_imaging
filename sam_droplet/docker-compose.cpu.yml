@@ -1,0 +1,62 @@
+services:
+  sam-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sam-droplet-app
+    restart: unless-stopped
+    environment:
+      - FLASK_HOST=0.0.0.0
+      - FLASK_PORT=9487
+      - FLASK_DEBUG=false
+      - API_KEYS=${API_KEYS:-sam-demo-key-123:Demo:50,sam-admin-key-456:Admin:200}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-admin-secret-key-change-me}
+      - HEALTH_CHECK_KEY=${HEALTH_CHECK_KEY:-health-check-key-123}
+      - SAM_MODEL_PATH=model/mobile_sam.pt
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}
+      - OMP_NUM_THREADS=${OMP_NUM_THREADS:-4}
+      - MKL_NUM_THREADS=${MKL_NUM_THREADS:-4}
+    volumes:
+      - ./model:/app/model:ro
+      - ./logs:/app/logs
+      - ./static:/app/static:ro
+    ports:
+      - "9487:9487"
+    networks:
+      - sam-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9487/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  cloudflare-tunnel:
+    build:
+      context: .
+      dockerfile: Dockerfile.tunnel
+    container_name: sam-droplet-tunnel
+    restart: unless-stopped
+    depends_on:
+      sam-app:
+        condition: service_healthy
+    volumes:
+      - ./config.yml:/etc/cloudflared/config.yml:ro
+      - ~/.cloudflared:/etc/cloudflared/.cloudflared:ro
+    networks:
+      - sam-network
+    user: "1000:1000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  sam-network:
+    driver: bridge
+
+volumes:
+  sam-logs:
+    driver: local 

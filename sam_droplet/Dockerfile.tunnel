@@ -1,0 +1,11 @@
+# Cloudflare Tunnel Container
+FROM cloudflare/cloudflared:latest
+
+# Copy tunnel configuration
+COPY config.yml /etc/cloudflared/
+
+# Set working directory
+WORKDIR /etc/cloudflared
+
+# Default command to run tunnel
+CMD ["tunnel", "--config", "/etc/cloudflared/config.yml", "run"] 
